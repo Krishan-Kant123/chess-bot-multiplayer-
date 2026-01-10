@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -10,7 +10,7 @@ import { RegisterForm } from "@/components/auth/RegisterForm";
 import { GuestLogin } from "@/components/auth/GuestLogin";
 import { Crown, Eye } from "lucide-react";
 
-export default function AuthPage() {
+function AuthContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { login, register, loginAsGuest, isAuthenticated } = useAuth();
@@ -87,8 +87,8 @@ export default function AuthPage() {
                         <button
                             onClick={() => setIsLogin(true)}
                             className={`text-sm font-medium pb-2 border-b-2 transition-colors ${isLogin
-                                    ? "text-black border-black"
-                                    : "text-gray-400 border-transparent hover:text-gray-600"
+                                ? "text-black border-black"
+                                : "text-gray-400 border-transparent hover:text-gray-600"
                                 }`}
                         >
                             LOGIN
@@ -96,8 +96,8 @@ export default function AuthPage() {
                         <button
                             onClick={() => setIsLogin(false)}
                             className={`text-sm font-medium pb-2 border-b-2 transition-colors ${!isLogin
-                                    ? "text-black border-black"
-                                    : "text-gray-400 border-transparent hover:text-gray-600"
+                                ? "text-black border-black"
+                                : "text-gray-400 border-transparent hover:text-gray-600"
                                 }`}
                         >
                             REGISTER
@@ -169,5 +169,13 @@ export default function AuthPage() {
                 </motion.div>
             </div>
         </div>
+    );
+}
+
+export default function AuthPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <AuthContent />
+        </Suspense>
     );
 }

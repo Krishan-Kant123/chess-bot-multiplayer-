@@ -1,7 +1,0 @@
-{
-  "/(dashboard)/analysis/[matchId]/page": "app/(dashboard)/analysis/[matchId]/page.js",
-  "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js",
-  "/(dashboard)/history/page": "app/(dashboard)/history/page.js",
-  "/(dashboard)/play/page": "app/(dashboard)/play/page.js",
-  "/_not-found/page": "app/_not-found/page.js"
-}

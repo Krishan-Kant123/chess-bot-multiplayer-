@@ -57,23 +57,23 @@ function AuthContent() {
     };
 
     return (
-        <div className="min-h-screen flex">
+        <div className="min-h-screen flex flex-col md:flex-row">
             {/* Left Panel - Member Access */}
-            <div className="flex-1 bg-white p-8 md:p-16 flex flex-col justify-center">
+            <div className="flex-1 bg-white p-6 md:p-16 flex flex-col justify-center">
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="max-w-md mx-auto w-full"
                 >
                     {/* Logo */}
-                    <Link href="/" className="inline-flex items-center gap-2 mb-12">
+                    <Link href="/" className="inline-flex items-center gap-2 mb-8 md:mb-12">
                         <div className="w-8 h-8 bg-black rounded flex items-center justify-center">
                             <Crown className="w-5 h-5 text-white" />
                         </div>
                     </Link>
 
                     {/* Header */}
-                    <h1 className="font-display text-4xl text-black mb-2">
+                    <h1 className="font-display text-3xl md:text-4xl text-black mb-2">
                         MEMBER
                         <br />
                         ACCESS
@@ -119,7 +119,7 @@ function AuthContent() {
                     </div>
 
                     {/* Bottom bar */}
-                    <div className="mt-12 pt-4 border-t border-gray-200">
+                    <div className="mt-8 md:mt-12 pt-4 border-t border-gray-200">
                         <p className="text-xs text-gray-500">
                             NEW TO THE CLUB?{" "}
                             <button
@@ -134,7 +134,7 @@ function AuthContent() {
             </div>
 
             {/* Right Panel - Visitor Pass (Guest) */}
-            <div className="flex-1 bg-accent p-8 md:p-16 flex flex-col justify-center relative overflow-hidden">
+            <div className="flex-1 bg-accent p-6 md:p-16 flex flex-col justify-center relative overflow-hidden min-h-[400px] md:min-h-screen">
                 {/* Decorative background shapes */}
                 <div className="absolute bottom-0 right-0 w-64 h-64 bg-red-500/20 transform rotate-45" />
                 <div className="absolute bottom-20 right-20 w-32 h-32 bg-red-500/30 transform rotate-45" />
@@ -150,7 +150,7 @@ function AuthContent() {
                     </div>
 
                     {/* Header */}
-                    <h2 className="font-display text-5xl text-white italic mb-4">
+                    <h2 className="font-display text-4xl md:text-5xl text-white italic mb-4">
                         VISITOR
                         <br />
                         PASS

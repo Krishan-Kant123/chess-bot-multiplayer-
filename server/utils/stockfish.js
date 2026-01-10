@@ -141,7 +141,7 @@ class StockfishAPI {
       // --- Try Stockfish Online ---
       const response = await axios.get(this.baseURL, {
         params: { fen, depth, mode: 'bestmove' },
-        timeout: 20000
+        timeout: 5000  // 5 second timeout - fallback to random if slow
       });
 
       if (response.data && response.data.success) {

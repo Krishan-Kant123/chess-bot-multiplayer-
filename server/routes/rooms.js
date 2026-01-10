@@ -172,4 +172,55 @@ router.get('/history/matches', auth, async (req, res) => {
   }
 });
 
+// Get a specific match for analysis/replay
+router.get('/history/match/:matchId', auth, async (req, res) => {
+  try {
+    const { matchId } = req.params;
+    
+    const match = await MatchHistory.findById(matchId)
+      .populate('opponentId', 'username rating')
+      .populate('userId', 'username rating');
+    
+    if (!match) {
+      return res.status(404).json({ message: 'Match not found' });
+    }
+    
+    // Verify user has access (they must be the user or opponent)
+    const isOwner = match.userId._id.toString() === req.user._id.toString();
+    const isOpponent = match.opponentId && match.opponentId._id.toString() === req.user._id.toString();
+    
+    if (!isOwner && !isOpponent) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    res.json({ match });
+  } catch (error) {
+    console.error('Get match error:', error);
+    res.status(500).json({ message: 'Failed to get match details' });
+  }
+});
+
+// Get match by room ID (for both users who played)
+router.get('/history/room/:roomId', auth, async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    
+    // Find the match for this user in this room
+    const match = await MatchHistory.findOne({ 
+      roomId,
+      userId: req.user._id 
+    })
+      .populate('opponentId', 'username rating');
+    
+    if (!match) {
+      return res.status(404).json({ message: 'Match not found' });
+    }
+    
+    res.json({ match });
+  } catch (error) {
+    console.error('Get match by room error:', error);
+    res.status(500).json({ message: 'Failed to get match details' });
+  }
+});
+
 export default router;

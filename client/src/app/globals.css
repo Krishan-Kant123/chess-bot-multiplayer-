@@ -1,0 +1,182 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-bebas: 'Bebas Neue', Impact, sans-serif;
+  --font-inter: 'Inter', system-ui, sans-serif;
+  --font-jetbrains: 'JetBrains Mono', monospace;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-background-secondary;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border-light rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-foreground-dim;
+  }
+
+  /* Selection */
+  ::selection {
+    @apply bg-accent/30 text-white;
+  }
+}
+
+@layer components {
+  /* Button variants */
+  .btn-primary {
+    @apply bg-accent hover:bg-accent-light text-white font-semibold px-6 py-3 
+           transition-all duration-200 hover:shadow-glow-red active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply bg-background-elevated hover:bg-background-card text-white font-semibold 
+           px-6 py-3 border border-border hover:border-accent transition-all duration-200;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent hover:bg-white/5 text-foreground-muted hover:text-white 
+           px-4 py-2 transition-all duration-200;
+  }
+
+  /* Card styles */
+  .card {
+    @apply bg-background-card border border-border rounded-lg;
+  }
+
+  .card-elevated {
+    @apply bg-background-elevated border border-border rounded-lg shadow-lg;
+  }
+
+  /* Input styles */
+  .input {
+    @apply bg-background-secondary border border-border rounded px-4 py-3 
+           text-white placeholder:text-foreground-dim focus:outline-none 
+           focus:border-accent transition-colors;
+  }
+
+  /* Victory/Defeat text styles */
+  .text-victory {
+    @apply font-display text-white tracking-wider;
+  }
+
+  .text-defeat {
+    @apply font-display text-white tracking-wider line-through decoration-accent;
+  }
+
+  /* Glow effects */
+  .glow-red {
+    @apply shadow-glow-red;
+  }
+
+  .glow-pulse {
+    @apply animate-pulse-glow;
+  }
+
+  /* Combat log table */
+  .combat-log-row {
+    @apply border-b border-border hover:bg-white/5 transition-colors;
+  }
+
+  /* Rating badge */
+  .rating-up {
+    @apply text-success;
+  }
+
+  .rating-down {
+    @apply text-accent;
+  }
+
+  /* Sidebar active state */
+  .sidebar-item {
+    @apply flex items-center gap-3 px-4 py-3 text-foreground-muted 
+           hover:text-white hover:bg-white/5 transition-all cursor-pointer;
+  }
+
+  .sidebar-item-active {
+    @apply text-white bg-accent/10 border-l-2 border-accent;
+  }
+
+  /* Grid background pattern */
+  .bg-grid {
+    background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  /* Corner brackets (like in victory screen) */
+  .corner-brackets {
+    position: relative;
+  }
+
+  .corner-brackets::before,
+  .corner-brackets::after {
+    content: '';
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border: 2px solid currentColor;
+  }
+
+  .corner-brackets::before {
+    top: 0;
+    left: 0;
+    border-right: none;
+    border-bottom: none;
+  }
+
+  .corner-brackets::after {
+    bottom: 0;
+    right: 0;
+    border-left: none;
+    border-top: none;
+  }
+}
+
+@layer utilities {
+  /* Text gradient */
+  .text-gradient {
+    @apply bg-gradient-to-r from-white to-foreground-muted bg-clip-text text-transparent;
+  }
+
+  /* Fade edges */
+  .fade-edges {
+    mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  }
+
+  /* Number display style */
+  .stat-number {
+    @apply font-mono text-4xl font-bold tracking-tight;
+  }
+
+  /* Tactical label style */
+  .tactical-label {
+    @apply text-xs uppercase tracking-[0.2em] text-foreground-dim;
+  }
+}
+
+
+.below{
+  bottom:-4.5rem;
+}

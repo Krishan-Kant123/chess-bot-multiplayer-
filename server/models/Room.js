@@ -106,7 +106,7 @@ const roomSchema = new mongoose.Schema({
     },
     reason: {
       type: String,
-      enum: ['checkmate', 'stalemate', 'timeout', 'resignation', 'draw_agreement', 'insufficient_material'],
+      enum: ['checkmate', 'stalemate', 'timeout', 'resignation', 'draw_agreement', 'insufficient_material', 'abandonment', 'fifty_move_rule', 'threefold_repetition'],
       default: null
     }
   },

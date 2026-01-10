@@ -32,3 +32,5 @@ yarn-error.log*
 
 # Coverage directory for testing
 /coverage/
+BACKEND_DOCUMENTATION.md
+ISSUES_AND_FIXES.md

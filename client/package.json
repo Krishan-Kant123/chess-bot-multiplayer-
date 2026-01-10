@@ -1,0 +1,42 @@
+{
+    "name": "chess-client",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start",
+        "lint": "next lint"
+    },
+    "dependencies": {
+        "@radix-ui/react-avatar": "^1.0.4",
+        "@radix-ui/react-dialog": "^1.0.5",
+        "@radix-ui/react-dropdown-menu": "^2.0.6",
+        "@radix-ui/react-progress": "^1.0.3",
+        "@radix-ui/react-slot": "^1.0.2",
+        "@radix-ui/react-tabs": "^1.0.4",
+        "@radix-ui/react-tooltip": "^1.0.7",
+        "chess.js": "^1.0.0-beta.8",
+        "class-variance-authority": "^0.7.0",
+        "clsx": "^2.1.0",
+        "framer-motion": "^11.0.0",
+        "lucide-react": "^0.400.0",
+        "next": "^16.1.1",
+        "react": "^19.2.3",
+        "react-chessboard": "^4.6.0",
+        "react-dom": "^19.2.3",
+        "socket.io-client": "^4.7.2",
+        "tailwind-merge": "^2.2.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.10.0",
+        "@types/react": "^18.2.0",
+        "@types/react-dom": "^18.2.0",
+        "autoprefixer": "^10.4.16",
+        "eslint": "^9.39.2",
+        "eslint-config-next": "^16.1.1",
+        "postcss": "^8.4.32",
+        "tailwindcss": "^3.4.0",
+        "typescript": "^5.3.0"
+    }
+}

@@ -1,0 +1,3 @@
+{
+  "/(dashboard)/play/page": "app/(dashboard)/play/page.js"
+}

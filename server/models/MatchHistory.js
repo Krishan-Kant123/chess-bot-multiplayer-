@@ -49,12 +49,27 @@ const matchHistorySchema = new mongoose.Schema({
   gameData: {
     pgn: String,
     finalFen: String,
+    startingFen: {
+      type: String,
+      default: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+    },
     moveCount: Number,
-    gameDuration: Number // in seconds
+    gameDuration: Number, // in seconds
+    // Detailed moves array for replay/analysis
+    moves: [{
+      from: String,          // e.g., "e2"
+      to: String,            // e.g., "e4"
+      piece: String,         // e.g., "p" for pawn
+      san: String,           // Standard notation e.g., "e4"
+      fen: String,           // Board position after this move
+      timestamp: Date,       // When the move was made
+      timeLeft: Number,      // Player's remaining time after move
+      moveNumber: Number     // 1, 2, 3...
+    }]
   },
   endReason: {
     type: String,
-    enum: ['checkmate', 'stalemate', 'timeout', 'resignation', 'draw_agreement', 'insufficient_material'],
+    enum: ['checkmate', 'stalemate', 'timeout', 'resignation', 'draw_agreement', 'insufficient_material', 'abandonment', 'fifty_move_rule', 'threefold_repetition'],
     required: true
   }
 }, {

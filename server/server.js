@@ -13,6 +13,7 @@ dotenv.config();
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
+   transports: ['websocket'],
   cors: {
     origin: process.env.CLIENT_URL || "http://localhost:5173",
     methods: ["GET", "POST"]

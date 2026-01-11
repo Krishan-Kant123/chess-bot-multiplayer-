@@ -34,34 +34,34 @@ export function PlaybackControls({
     onEnd,
 }: PlaybackControlsProps) {
     return (
-        <div className="mt-6">
-            <div className="flex items-center justify-center gap-2">
-                <Button variant="ghost" size="icon" onClick={onStart}>
-                    <SkipBack className="w-5 h-5" />
+        <div className="mt-4 md:mt-6">
+            <div className="flex items-center justify-center gap-1 md:gap-2">
+                <Button variant="ghost" size="icon" onClick={onStart} className="w-8 h-8 md:w-10 md:h-10">
+                    <SkipBack className="w-4 h-4 md:w-5 md:h-5" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={onPrev}>
-                    <ChevronLeft className="w-5 h-5" />
+                <Button variant="ghost" size="icon" onClick={onPrev} className="w-8 h-8 md:w-10 md:h-10">
+                    <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
                 </Button>
                 <Button
                     size="icon"
                     onClick={isPlaying ? onPause : onPlay}
-                    className={isPlaying ? "bg-accent" : ""}
+                    className={`w-10 h-10 md:w-12 md:h-12 ${isPlaying ? "bg-accent" : ""}`}
                 >
                     {isPlaying ? (
-                        <Pause className="w-5 h-5" />
+                        <Pause className="w-4 h-4 md:w-5 md:h-5" />
                     ) : (
-                        <Play className="w-5 h-5" />
+                        <Play className="w-4 h-4 md:w-5 md:h-5" />
                     )}
                 </Button>
-                <Button variant="ghost" size="icon" onClick={onNext}>
-                    <ChevronRight className="w-5 h-5" />
+                <Button variant="ghost" size="icon" onClick={onNext} className="w-8 h-8 md:w-10 md:h-10">
+                    <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={onEnd}>
-                    <SkipForward className="w-5 h-5" />
+                <Button variant="ghost" size="icon" onClick={onEnd} className="w-8 h-8 md:w-10 md:h-10">
+                    <SkipForward className="w-4 h-4 md:w-5 md:h-5" />
                 </Button>
             </div>
 
-            <div className="mt-4 px-8">
+            <div className="mt-4 px-4 md:px-8">
                 <div className="h-1 bg-background-elevated rounded-full">
                     <div
                         className="h-full bg-accent rounded-full transition-all"

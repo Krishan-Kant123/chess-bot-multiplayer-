@@ -7,6 +7,7 @@ import { Chess, Square } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import { useAuth } from "@/context/AuthContext";
 import socketService from "@/lib/socket";
+import { soundManager } from "@/lib/sounds";
 import { Room, Move } from "@/lib/api";
 import { PlayerInfo } from "@/components/game/PlayerInfo";
 import { MoveHistory } from "@/components/game/MoveHistory";
@@ -14,6 +15,7 @@ import { ChatPanel } from "@/components/game/ChatPanel";
 import { GameControls } from "@/components/game/GameControls";
 import { DrawOfferModal } from "@/components/game/DrawOfferModal";
 import { GameResultModal } from "@/components/game/GameResultModal";
+import { BoardColorPicker, useBoardColors } from "@/components/game/BoardColorPicker";
 
 interface ChatMessage {
     id: string;
@@ -58,6 +60,12 @@ export default function GamePage() {
 
     // Opponent status
     const [opponentDisconnected, setOpponentDisconnected] = useState(false);
+
+    // Last move highlighting
+    const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
+
+    // Board colors (personalized per user)
+    const boardColors = useBoardColors();
 
     // Store current room in localStorage for reconnection after refresh
     useEffect(() => {
@@ -109,6 +117,12 @@ export default function GamePage() {
             setMoveHistory((prev) => [...prev, data.move.san || `${data.move.from}-${data.move.to}`]);
             setIsMyTurn(data.currentTurn === playerColor);
 
+            // Highlight last move
+            setLastMove({ from: data.move.from, to: data.move.to });
+
+            // Play appropriate move sound based on move type
+            soundManager.playMoveSound(data.move, newGame.isCheck());
+
             // Check for game over
             if (newGame.isGameOver()) {
                 let winner = "draw";
@@ -125,8 +139,11 @@ export default function GamePage() {
                     reason = "insufficient_material";
                 }
 
-                // console.log("Client detected game over:", { winner, reason });
-                setGameResult({ winner, reason });
+                // Play notify sound and delay modal by 1 second
+                soundManager.playNotify();
+                setTimeout(() => {
+                    setGameResult({ winner, reason });
+                }, 1000);
             }
         });
 
@@ -140,7 +157,10 @@ export default function GamePage() {
 
         const unsubGameEnded = socketService.onGameEnded((data) => {
             console.log("Game ended event received:", data);
-            setGameResult(data.result);
+            soundManager.playNotify();
+            setTimeout(() => {
+                setGameResult(data.result);
+            }, 1000);
         });
 
         const unsubChat = socketService.onChatMessage((data) => {
@@ -148,6 +168,8 @@ export default function GamePage() {
             if (!isChatOpen) {
                 setUnreadMessages((prev) => prev + 1);
             }
+            // Play notify sound for new chat messages
+            soundManager.playNotify();
         });
 
         const unsubDrawOffered = socketService.onDrawOffered((data) => {
@@ -224,6 +246,13 @@ export default function GamePage() {
                     socketService.makeMove(roomId, move);
                     setSelectedSquare(null);
                     setLegalMoves([]);
+
+                    // Highlight last move
+                    setLastMove({ from: selectedSquare, to: square });
+
+                    // Play appropriate sound based on move type
+                    const tempGame = new Chess(game.fen());
+                    soundManager.playMoveSound(result, tempGame.isCheck());
                 }
             } catch {
                 selectPiece(square);
@@ -255,6 +284,13 @@ export default function GamePage() {
                 socketService.makeMove(roomId, move);
                 setSelectedSquare(null);
                 setLegalMoves([]);
+
+                // Highlight last move
+                setLastMove({ from: sourceSquare, to: targetSquare });
+
+                // Play appropriate sound based on move type
+                const tempGame = new Chess(game.fen());
+                soundManager.playMoveSound(result, tempGame.isCheck());
                 return true;
             }
         } catch {
@@ -293,6 +329,39 @@ export default function GamePage() {
 
     // Custom square styles
     const customSquareStyles: Record<string, React.CSSProperties> = {};
+
+    // Highlight last move (from and to squares)
+    if (lastMove) {
+        customSquareStyles[lastMove.from] = {
+            backgroundColor: "rgba(255, 86, 86, 0.4)", // Yellow overlay for source
+        };
+        customSquareStyles[lastMove.to] = {
+            backgroundColor: "rgba(255, 86, 86, 0.4)", // Yellow overlay for destination
+        };
+    }
+
+    // Highlight king if in check
+    if (game.isCheck()) {
+        const kingColor = game.turn(); // 'w' or 'b' - the side that's in check
+        const board = game.board();
+
+        // Find the king's position
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                const piece = board[row][col];
+                if (piece && piece.type === 'k' && piece.color === kingColor) {
+                    // Convert row/col to square notation (e.g., 'e1', 'e8')
+                    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+                    const kingSquare = `${files[col]}${8 - row}`;
+                    customSquareStyles[kingSquare] = {
+                        backgroundColor: "rgba(220, 38, 38, 0.7)",
+                        boxShadow: "inset 0 0 20px rgba(220, 38, 38, 0.8)",
+                    };
+                }
+            }
+        }
+    }
+
     if (selectedSquare) {
         customSquareStyles[selectedSquare] = {
             backgroundColor: "rgba(220, 38, 38, 0.4)",
@@ -333,7 +402,7 @@ export default function GamePage() {
                 />
 
 
-                <div className="relative my-2 md:my-4 flex justify-center">
+                <div className="relative my-2 md:my-4 mb-12 md:mb-14 flex justify-center">
                     <Chessboard
                         position={game.fen()}
                         onSquareClick={onSquareClick}
@@ -345,16 +414,16 @@ export default function GamePage() {
                             borderRadius: "4px",
                             boxShadow: "0 0 30px rgba(0,0,0,0.5)",
                         }}
-                        customDarkSquareStyle={{ backgroundColor: "#1a1a1a" }}
-                        customLightSquareStyle={{ backgroundColor: "#2a2a2a" }}
+                        customDarkSquareStyle={{ backgroundColor: boardColors.dark }}
+                        customLightSquareStyle={{ backgroundColor: boardColors.light }}
                     />
 
                     {/* Turn indicator */}
                     {isMyTurn && room?.gameStatus === "in_progress" && !gameResult && (
                         <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="absolute below  left-1/2 -translate-x-1/2 bg-accent px-4 py-1 rounded-full text-xs md:text-sm font-semibold"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="absolute -bottom-10  -translate-x-1/2 bg-accent px-4 py-1 rounded-full text-xs md:text-sm font-semibold whitespace-nowrap shadow-lg"
                         >
                             YOUR TURN
                         </motion.div>
@@ -372,7 +441,7 @@ export default function GamePage() {
                 />
 
                 {/* Game Controls */}
-                <div className="w-full md:w-auto">
+                <div className="w-full md:w-auto flex items-center gap-2 justify-center">
                     <GameControls
                         onResign={handleResign}
                         onOfferDraw={handleOfferDraw}
@@ -381,17 +450,19 @@ export default function GamePage() {
                         drawOffered={drawOffered}
                         unreadCount={unreadMessages}
                     />
+                    <BoardColorPicker />
                 </div>
             </div>
 
             {/* Side Panel - Hidden on mobile, shows in modal when chat is opened */}
-            <div className="hidden md:flex md:w-80 flex-col gap-4">
+            <div className="hidden md:flex md:w-96 lg:w-[420px] flex-col gap-4 h-full">
                 <MoveHistory moves={moveHistory} />
                 <ChatPanel
                     isOpen={isChatOpen}
                     messages={chatMessages}
                     onClose={() => setIsChatOpen(false)}
                     onSend={handleSendChat}
+                    currentUsername={myName}
                 />
             </div>
 
@@ -399,15 +470,13 @@ export default function GamePage() {
             <div className="md:hidden">
                 {isChatOpen && (
                     <div className="fixed inset-0 bg-background z-50 flex flex-col">
-                        <div className="flex-1 flex flex-col">
-                            <MoveHistory moves={moveHistory} />
-                            <ChatPanel
-                                isOpen={true}
-                                messages={chatMessages}
-                                onClose={() => setIsChatOpen(false)}
-                                onSend={handleSendChat}
-                            />
-                        </div>
+                        <ChatPanel
+                            isOpen={true}
+                            messages={chatMessages}
+                            onClose={() => setIsChatOpen(false)}
+                            onSend={handleSendChat}
+                            currentUsername={myName}
+                        />
                     </div>
                 )}
             </div>

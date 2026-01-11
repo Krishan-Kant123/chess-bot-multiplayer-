@@ -23,13 +23,13 @@ export function PlayerInfo({
     showColor = false,
 }: PlayerInfoProps) {
     return (
-        <div className="w-full max-w-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-                <Avatar>
+        <div className="w-full max-w-lg flex items-center justify-between px-2 md:px-0">
+            <div className="flex items-center gap-2 md:gap-3">
+                <Avatar className="w-8 h-8 md:w-10 md:h-10">
                     <AvatarFallback>{name.slice(0, 2).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>
-                    <div className="font-semibold text-white">{name}</div>
+                    <div className="font-semibold text-white text-sm md:text-base truncate max-w-[120px] md:max-w-none">{name}</div>
                     {disconnected && (
                         <div className="text-xs text-accent">Disconnected</div>
                     )}
@@ -42,7 +42,7 @@ export function PlayerInfo({
             </div>
             <div
                 className={cn(
-                    "font-mono text-2xl px-4 py-2 rounded",
+                    "font-mono text-lg md:text-2xl px-2 md:px-4 py-1 md:py-2 rounded",
                     isMyTurn && isActive
                         ? "bg-accent text-white animate-pulse"
                         : "bg-background-elevated text-foreground-muted"

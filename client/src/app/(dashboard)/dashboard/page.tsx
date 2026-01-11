@@ -29,7 +29,7 @@ export default function DashboardPage() {
     }, []);
 
     return (
-        <div className="p-8">
+        <div className="p-4 md:p-8">
             {/* Last Match Banner */}
             {lastMatch && <VictoryBanner match={lastMatch} />}
 
@@ -38,13 +38,13 @@ export default function DashboardPage() {
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-gradient-to-r from-accent to-accent-dark rounded-lg p-8 mb-8 text-center"
+                    className="bg-gradient-to-r from-accent to-accent-dark rounded-lg p-6 md:p-8 mb-6 md:mb-8 text-center"
                 >
-                    <Crown className="w-16 h-16 text-white mx-auto mb-4" />
-                    <h2 className="font-display text-4xl text-white mb-2">
+                    <Crown className="w-12 h-12 md:w-16 md:h-16 text-white mx-auto mb-4" />
+                    <h2 className="font-display text-2xl md:text-4xl text-white mb-2">
                         WELCOME, {user?.username?.toUpperCase()}
                     </h2>
-                    <p className="text-white/80 mb-6">
+                    <p className="text-sm md:text-base text-white/80 mb-6">
                         Ready to begin your journey to grandmaster?
                     </p>
                     <Link href="/play">

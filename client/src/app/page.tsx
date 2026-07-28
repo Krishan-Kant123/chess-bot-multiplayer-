@@ -64,8 +64,8 @@ export default function LandingPage() {
                             transition={{ delay: 0.1 }}
                             className="inline-flex items-center gap-2 bg-accent/10 border border-accent/30 px-3 md:px-4 py-1.5 md:py-2 rounded-full mb-6 md:mb-8"
                         >
-                            <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-accent" />
-                            <span className="text-xs md:text-sm font-medium text-accent">TACTICAL CHESS WARFARE</span>
+                            {/*<Sparkles className="w-3 h-3 md:w-4 md:h-4 text-accent" />
+                            <span className="text-xs md:text-sm font-medium text-accent">TACTICAL CHESS WARFARE</span>*/}
                         </motion.div>
 
                         {/* Main headline */}

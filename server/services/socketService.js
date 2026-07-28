@@ -1136,9 +1136,15 @@ class SocketService {
     // Update ratings and create match history for rated games
     if (room.matchType === 'rated' && room.player1.userId && room.player2.userId) {
       await this.updateRatingsAndHistory(room);
-    } else if (room.matchType === 'ai' && room.player1.userId) {
-      // Create match history for AI games (no rating change)
-      await this.createMatchHistory(room, room.player1.userId, null, result);
+    } else {
+      // For casual matches, AI matches, or matches where one player is a guest:
+      // Create match history for any authenticated users involved (no rating change)
+      if (room.player1.userId) {
+        await this.createMatchHistory(room, room.player1.userId, room.player2.userId || null, result);
+      }
+      if (room.player2.userId) {
+        await this.createMatchHistory(room, room.player2.userId, room.player1.userId || null, result);
+      }
     }
   }
 

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Chess, Square } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import { useAuth } from "@/context/AuthContext";
@@ -60,12 +60,101 @@ export default function GamePage() {
 
     // Opponent status
     const [opponentDisconnected, setOpponentDisconnected] = useState(false);
+    const [disconnectCountdown, setDisconnectCountdown] = useState<number | null>(null);
+    const disconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // Last move highlighting
     const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
 
     // Board colors (personalized per user)
     const boardColors = useBoardColors();
+
+    // Refs to hold mutable values for socket callbacks without causing re-subscriptions
+    const playerColorRef = useRef(playerColor);
+    const roomRef = useRef(room);
+    const isChatOpenRef = useRef(isChatOpen);
+    const userRef = useRef(user);
+
+    // Keep refs in sync
+    useEffect(() => { playerColorRef.current = playerColor; }, [playerColor]);
+    useEffect(() => { roomRef.current = room; }, [room]);
+    useEffect(() => { isChatOpenRef.current = isChatOpen; }, [isChatOpen]);
+    useEffect(() => { userRef.current = user; }, [user]);
+
+    // Helper: resolve current player ID from user context OR localStorage fallback
+    const getMyPlayerId = useCallback((): string | undefined => {
+        const u = userRef.current;
+        if (u) {
+            return u.id || u._id || u.guestId;
+        }
+        // Fallback: user context hasn't populated yet (race condition during reconnection)
+        const guestId = typeof window !== "undefined" ? localStorage.getItem("guestId") : null;
+        if (guestId) return guestId;
+        return undefined;
+    }, []);
+
+    // Restore move history + last move from PGN
+    const restoreMoveHistoryFromPgn = useCallback((pgn: string) => {
+        if (!pgn || pgn.trim() === "") {
+            setMoveHistory([]);
+            setLastMove(null);
+            return;
+        }
+        try {
+            const replayChess = new Chess();
+            replayChess.loadPgn(pgn);
+            const history = replayChess.history();
+            setMoveHistory(history);
+
+            // Restore last move highlighting
+            const verboseHistory = replayChess.history({ verbose: true });
+            if (verboseHistory.length > 0) {
+                const last = verboseHistory[verboseHistory.length - 1];
+                setLastMove({ from: last.from, to: last.to });
+            } else {
+                setLastMove(null);
+            }
+        } catch (e) {
+            console.error("Failed to restore move history from PGN:", e);
+            setMoveHistory([]);
+            setLastMove(null);
+        }
+    }, []);
+
+    // Core state restoration from room data
+    const updateGameState = useCallback((roomData: Room) => {
+        const newGame = new Chess(roomData.gameData.fen);
+        setGame(newGame);
+
+        const myId = getMyPlayerId();
+
+        let myColor: "white" | "black";
+        let myTimeLeft: number;
+        let oppTimeLeft: number;
+
+        if (myId && (roomData.player1.userId === myId || roomData.player1.guestId === myId)) {
+            myColor = roomData.player1.color;
+            myTimeLeft = roomData.player1.timeLeft;
+            oppTimeLeft = roomData.player2.timeLeft;
+        } else if (myId && (roomData.player2.userId === myId || roomData.player2.guestId === myId)) {
+            myColor = roomData.player2.color;
+            myTimeLeft = roomData.player2.timeLeft;
+            oppTimeLeft = roomData.player1.timeLeft;
+        } else {
+            // Last resort fallback: we couldn't identify ourselves, default to player2
+            myColor = roomData.player2.color;
+            myTimeLeft = roomData.player2.timeLeft;
+            oppTimeLeft = roomData.player1.timeLeft;
+        }
+
+        setPlayerColor(myColor);
+        setMyTime(myTimeLeft);
+        setOpponentTime(oppTimeLeft);
+        setIsMyTurn(roomData.currentTurn === myColor);
+
+        // Restore move history from PGN
+        restoreMoveHistoryFromPgn(roomData.gameData.pgn);
+    }, [getMyPlayerId, restoreMoveHistoryFromPgn]);
 
     // Store current room in localStorage for reconnection after refresh
     useEffect(() => {
@@ -79,161 +168,188 @@ export default function GamePage() {
         };
     }, [roomId]);
 
-    // Initialize socket listeners
+    // Cleanup disconnect timer on unmount
     useEffect(() => {
-        const socket = socketService.getSocket();
-        if (!socket) {
-            console.log("No socket available");
-            return;
-        }
-
-        // console.log("Setting up game listeners for room:", roomId);
-        socketService.joinRoom(roomId);
-
-        const unsubRoomUpdate = socketService.onRoomUpdate((data) => {
-            // console.log("Room update received");
-            setRoom(data.room);
-            updateGameState(data.room);
-
-            // Check if game ended
-            if (data.room.gameStatus === "completed" && data.room.result) {
-                // console.log("Game completed");
-                setGameResult({
-                    winner: data.room.result.winner,
-                    reason: data.room.result.reason,
-                });
+        return () => {
+            if (disconnectTimerRef.current) {
+                clearInterval(disconnectTimerRef.current);
             }
-        });
+        };
+    }, []);
 
-        const unsubGameStarted = socketService.onGameStarted((data) => {
-            // console.log("Game started");
-            setRoom(data.room);
-            updateGameState(data.room);
-        });
+    // Initialize socket listeners — retries until socket is available
+    useEffect(() => {
+        let cancelled = false;
+        let retryTimer: ReturnType<typeof setTimeout> | null = null;
+        const cleanupFns: (() => void)[] = [];
 
-        const unsubMoveMade = socketService.onMoveMade((data) => {
-            const newGame = new Chess(data.fen);
-            setGame(newGame);
-            setMoveHistory((prev) => [...prev, data.move.san || `${data.move.from}-${data.move.to}`]);
-            setIsMyTurn(data.currentTurn === playerColor);
+        const setup = () => {
+            if (cancelled) return;
 
-            // Highlight last move
-            setLastMove({ from: data.move.from, to: data.move.to });
+            const socket = socketService.getSocket();
+            if (!socket) {
+                // Socket not created yet (AuthContext hasn't initialized)
+                // Retry until it's available
+                retryTimer = setTimeout(setup, 200);
+                return;
+            }
 
-            // Play appropriate move sound based on move type
-            soundManager.playMoveSound(data.move, newGame.isCheck());
+            socketService.joinRoom(roomId);
 
-            // Check for game over
-            if (newGame.isGameOver()) {
-                let winner = "draw";
-                let reason = "draw";
+            cleanupFns.push(socketService.onRoomUpdate((data) => {
+                setRoom(data.room);
+                updateGameState(data.room);
 
-                if (newGame.isCheckmate()) {
-                    winner = newGame.turn() === "w" ? "black" : "white";
-                    reason = "checkmate";
-                } else if (newGame.isStalemate()) {
-                    reason = "stalemate";
-                } else if (newGame.isThreefoldRepetition()) {
-                    reason = "repetition";
-                } else if (newGame.isInsufficientMaterial()) {
-                    reason = "insufficient_material";
+                // Check if game ended
+                if (data.room.gameStatus === "completed" && data.room.result) {
+                    setGameResult({
+                        winner: data.room.result.winner,
+                        reason: data.room.result.reason,
+                    });
+                }
+            }));
+
+            cleanupFns.push(socketService.onGameStarted((data) => {
+                setRoom(data.room);
+                updateGameState(data.room);
+            }));
+
+            // Listen for reconnection event (full state restore)
+            cleanupFns.push(socketService.onGameReconnected((data) => {
+                console.log("Game reconnected — restoring full state");
+                setRoom(data.room);
+                updateGameState(data.room);
+            }));
+
+            cleanupFns.push(socketService.onMoveMade((data) => {
+                const newGame = new Chess(data.fen);
+                setGame(newGame);
+                setMoveHistory((prev) => [...prev, data.move.san || `${data.move.from}-${data.move.to}`]);
+                setIsMyTurn(data.currentTurn === playerColorRef.current);
+
+                // Highlight last move
+                setLastMove({ from: data.move.from, to: data.move.to });
+
+                // Play appropriate move sound based on move type
+                // Only play if it's our turn now (meaning the opponent made this move),
+                // because local moves already played their sound instantly on drop/click.
+                if (data.currentTurn === playerColorRef.current) {
+                    soundManager.playMoveSound(data.move, newGame.isCheck());
                 }
 
-                // Play notify sound and delay modal by 1 second
+                // Check for game over
+                if (newGame.isGameOver()) {
+                    let winner = "draw";
+                    let reason = "draw";
+
+                    if (newGame.isCheckmate()) {
+                        winner = newGame.turn() === "w" ? "black" : "white";
+                        reason = "checkmate";
+                    } else if (newGame.isStalemate()) {
+                        reason = "stalemate";
+                    } else if (newGame.isThreefoldRepetition()) {
+                        reason = "repetition";
+                    } else if (newGame.isInsufficientMaterial()) {
+                        reason = "insufficient_material";
+                    }
+
+                    // Play notify sound and delay modal by 1 second
+                    soundManager.playNotify();
+                    setTimeout(() => {
+                        setGameResult({ winner, reason });
+                    }, 1000);
+                }
+            }));
+
+            cleanupFns.push(socketService.onTimeUpdate((data) => {
+                const currentRoom = roomRef.current;
+                const currentColor = playerColorRef.current;
+                if (currentRoom) {
+                    const myPlayer = currentRoom.player1.color === currentColor ? "player1" : "player2";
+                    setMyTime(myPlayer === "player1" ? data.player1TimeLeft : data.player2TimeLeft);
+                    setOpponentTime(myPlayer === "player1" ? data.player2TimeLeft : data.player1TimeLeft);
+                }
+            }));
+
+            cleanupFns.push(socketService.onGameEnded((data) => {
+                console.log("Game ended event received:", data);
                 soundManager.playNotify();
+                // Clear disconnect state if game ends due to abandonment
+                setOpponentDisconnected(false);
+                setDisconnectCountdown(null);
+                if (disconnectTimerRef.current) {
+                    clearInterval(disconnectTimerRef.current);
+                    disconnectTimerRef.current = null;
+                }
                 setTimeout(() => {
-                    setGameResult({ winner, reason });
+                    setGameResult(data.result);
                 }, 1000);
-            }
-        });
+            }));
 
-        const unsubTimeUpdate = socketService.onTimeUpdate((data) => {
-            if (room) {
-                const myPlayer = room.player1.color === playerColor ? "player1" : "player2";
-                setMyTime(myPlayer === "player1" ? data.player1TimeLeft : data.player2TimeLeft);
-                setOpponentTime(myPlayer === "player1" ? data.player2TimeLeft : data.player1TimeLeft);
-            }
-        });
+            cleanupFns.push(socketService.onChatMessage((data) => {
+                setChatMessages((prev) => [...prev, data]);
+                if (!isChatOpenRef.current) {
+                    setUnreadMessages((prev) => prev + 1);
+                }
+                // Play notify sound for new chat messages
+                soundManager.playNotify();
+            }));
 
-        const unsubGameEnded = socketService.onGameEnded((data) => {
-            console.log("Game ended event received:", data);
-            soundManager.playNotify();
-            setTimeout(() => {
-                setGameResult(data.result);
-            }, 1000);
-        });
+            cleanupFns.push(socketService.onDrawOffered((data) => {
+                setDrawOfferedBy(data.username);
+                setDrawOffered(true);
+            }));
 
-        const unsubChat = socketService.onChatMessage((data) => {
-            setChatMessages((prev) => [...prev, data]);
-            if (!isChatOpen) {
-                setUnreadMessages((prev) => prev + 1);
-            }
-            // Play notify sound for new chat messages
-            soundManager.playNotify();
-        });
+            cleanupFns.push(socketService.onDrawDeclined(() => {
+                setDrawOffered(false);
+                setDrawOfferedBy(null);
+                const toast = document.createElement("div");
+                toast.className = "fixed top-4 right-4 bg-accent text-white px-6 py-3 rounded shadow-lg z-50";
+                toast.textContent = "Draw offer declined";
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            }));
 
-        const unsubDrawOffered = socketService.onDrawOffered((data) => {
-            setDrawOfferedBy(data.username);
-            setDrawOffered(true);
-        });
+            cleanupFns.push(socketService.onOpponentDisconnected((data) => {
+                setOpponentDisconnected(true);
+                const grace = data?.graceSeconds || 60;
+                setDisconnectCountdown(grace);
 
-        const unsubDrawDeclined = socketService.onDrawDeclined(() => {
-            setDrawOffered(false);
-            setDrawOfferedBy(null);
-            const toast = document.createElement("div");
-            toast.className = "fixed top-4 right-4 bg-accent text-white px-6 py-3 rounded shadow-lg z-50";
-            toast.textContent = "Draw offer declined";
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-        });
+                // Start countdown
+                if (disconnectTimerRef.current) {
+                    clearInterval(disconnectTimerRef.current);
+                }
+                let remaining = grace;
+                disconnectTimerRef.current = setInterval(() => {
+                    remaining -= 1;
+                    setDisconnectCountdown(remaining);
+                    if (remaining <= 0) {
+                        if (disconnectTimerRef.current) {
+                            clearInterval(disconnectTimerRef.current);
+                            disconnectTimerRef.current = null;
+                        }
+                    }
+                }, 1000);
+            }));
 
-        const unsubOpponentDisconnected = socketService.onOpponentDisconnected(() => {
-            setOpponentDisconnected(true);
-        });
+            cleanupFns.push(socketService.onOpponentReconnected(() => {
+                setOpponentDisconnected(false);
+                setDisconnectCountdown(null);
+                if (disconnectTimerRef.current) {
+                    clearInterval(disconnectTimerRef.current);
+                    disconnectTimerRef.current = null;
+                }
+            }));
+        };
 
-        const unsubOpponentReconnected = socketService.onOpponentReconnected(() => {
-            setOpponentDisconnected(false);
-        });
+        setup();
 
         return () => {
-            unsubRoomUpdate();
-            unsubGameStarted();
-            unsubMoveMade();
-            unsubTimeUpdate();
-            unsubGameEnded();
-            unsubChat();
-            unsubDrawOffered();
-            unsubDrawDeclined();
-            unsubOpponentDisconnected();
-            unsubOpponentReconnected();
+            cancelled = true;
+            if (retryTimer) clearTimeout(retryTimer);
+            cleanupFns.forEach((fn) => fn());
         };
-    }, [roomId, playerColor, room, isChatOpen]);
-
-    const updateGameState = (roomData: Room) => {
-        const newGame = new Chess(roomData.gameData.fen);
-        setGame(newGame);
-
-        const myId = user?.id || user?._id || user?.guestId;
-
-        let myColor: "white" | "black";
-        let myTimeLeft: number;
-        let oppTimeLeft: number;
-
-        if (roomData.player1.userId === myId || roomData.player1.guestId === myId) {
-            myColor = roomData.player1.color;
-            myTimeLeft = roomData.player1.timeLeft;
-            oppTimeLeft = roomData.player2.timeLeft;
-        } else {
-            myColor = roomData.player2.color;
-            myTimeLeft = roomData.player2.timeLeft;
-            oppTimeLeft = roomData.player1.timeLeft;
-        }
-
-        setPlayerColor(myColor);
-        setMyTime(myTimeLeft);
-        setOpponentTime(oppTimeLeft);
-        setIsMyTurn(roomData.currentTurn === myColor);
-    };
+    }, [roomId, updateGameState]);
 
     const onSquareClick = (square: Square) => {
         if (!isMyTurn || gameResult) return;
@@ -401,6 +517,27 @@ export default function GamePage() {
                     disconnected={opponentDisconnected}
                 />
 
+                {/* Disconnect Countdown Banner */}
+                <AnimatePresence>
+                    {opponentDisconnected && disconnectCountdown !== null && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -10, height: 0 }}
+                            animate={{ opacity: 1, y: 0, height: "auto" }}
+                            exit={{ opacity: 0, y: -10, height: 0 }}
+                            className="w-full max-w-lg my-2"
+                        >
+                            <div className="flex items-center justify-center gap-2 bg-red-900/80 border border-red-500/50 text-red-100 px-4 py-2 rounded-lg text-sm font-medium backdrop-blur-sm">
+                                <span className="inline-block w-2 h-2 bg-red-400 rounded-full animate-pulse" />
+                                <span>
+                                    Opponent disconnected — forfeit in{" "}
+                                    <span className="font-mono font-bold text-white">
+                                        {Math.floor(disconnectCountdown / 60)}:{String(disconnectCountdown % 60).padStart(2, "0")}
+                                    </span>
+                                </span>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 <div className="relative my-2 md:my-4 mb-12 md:mb-14 flex justify-center">
                     <Chessboard

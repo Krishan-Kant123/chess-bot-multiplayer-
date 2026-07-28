@@ -233,7 +233,7 @@ class SocketService {
         return () => this.socket?.off("draw_declined", callback);
     }
 
-    onOpponentDisconnected(callback: () => void) {
+    onOpponentDisconnected(callback: (data: any) => void) {
         this.socket?.on("opponent_disconnected", callback);
         return () => this.socket?.off("opponent_disconnected", callback);
     }
@@ -244,18 +244,9 @@ class SocketService {
     }
 
     onGameReconnected(callback: (data: any) => void) {
-        this.socket?.on("reconnected_to_game", callback);
-        return () => this.socket?.off("reconnected_to_game", callback);
-    }
+        this.socket?.on("game_reconnected", callback);
+        return () => this.socket?.off("game_reconnected", callback);
 
-    onQueueJoined(callback: (data: any) => void) {
-        this.socket?.on("queue_joined", callback);
-        return () => this.socket?.off("queue_joined", callback);
-    }
-
-    onError(callback: (data: any) => void) {
-        this.socket?.on("error", callback);
-        return () => this.socket?.off("error", callback);
     }
 }
 

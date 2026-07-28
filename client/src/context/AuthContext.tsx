@@ -71,6 +71,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             socketService.onAuthError((data) => {
                 console.error("Auth error:", data.message);
             });
+
+            // Global reconnection handler: redirect to active game if not already on it
+            socketService.onGameReconnected((data) => {
+                const gameRoomId = data?.room?.roomId;
+                if (gameRoomId && typeof window !== "undefined") {
+                    const currentPath = window.location.pathname;
+                    // Only redirect if we're NOT already on this game's page
+                    if (!currentPath.includes(`/game/${gameRoomId}`)) {
+                        console.log(`Reconnected to active game — redirecting to /game/${gameRoomId}`);
+                        window.location.href = `/game/${gameRoomId}`;
+                    }
+                }
+            });
         };
 
         initAuth();
